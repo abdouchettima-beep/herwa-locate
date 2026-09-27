@@ -6,51 +6,213 @@
 
     <title>HERWA LOCATE</title>
 
+    <!-- Leaflet CSS -->
     <link
         rel="stylesheet"
         href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
     />
 
     <style>
-        html, body {
+        html,
+        body {
             height: 100%;
             margin: 0;
+            padding: 0;
         }
 
         #map {
             height: 100%;
             width: 100%;
         }
+
+        /* My Location button */
+        #locateBtn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+
+            padding: 13px 18px;
+            border: none;
+            border-radius: 25px;
+
+            background: white;
+            color: #222;
+
+            font-size: 16px;
+            font-weight: bold;
+
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+
+            cursor: pointer;
+        }
+
+        #locateBtn:active {
+            transform: scale(0.96);
+        }
     </style>
 </head>
 
 <body>
 
+    <!-- Map -->
     <div id="map"></div>
 
+    <!-- Location button -->
+    <button id="locateBtn">📍 My Location</button>
+
+    <!-- Leaflet JavaScript -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <script>
-        // Maiduguri starting position
+        // ==============================
+        // HERWA LOCATE
+        // ==============================
+
+        // Maiduguri starting coordinates
         const maiduguri = [11.8333, 13.1500];
 
         // Create map
-        const map = L.map('map').setView(maiduguri, 13);
+        const map = L.map("map").setView(maiduguri, 13);
 
-        // OpenStreetMap tiles
+        // OpenStreetMap
         L.tileLayer(
-            'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+            "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
             {
                 maxZoom: 19,
-                attribution: '&copy; OpenStreetMap contributors'
+                attribution: "&copy; OpenStreetMap contributors"
             }
         ).addTo(map);
 
         // Maiduguri marker
         L.marker(maiduguri)
             .addTo(map)
-            .bindPopup('<b>HERWA LOCATE</b><br>Maiduguri')
-            .openPopup();
+            .bindPopup(
+                "<b>HERWA LOCATE</b><br>Maiduguri"
+            );
+
+        // ==============================
+        // MY LOCATION
+        // ==============================
+
+        let userMarker = null;
+        let accuracyCircle = null;
+
+        document
+            .getElementById("locateBtn")
+            .addEventListener("click", function () {
+
+                // Check if GPS is available
+                if (!navigator.geolocation) {
+                    alert(
+                        "Your device does not support location services."
+                    );
+                    return;
+                }
+
+                // Show temporary message
+                this.textContent = "📍 Finding you...";
+
+                navigator.geolocation.getCurrentPosition(
+
+                    // SUCCESS
+                    function (position) {
+
+                        const latitude =
+                            position.coords.latitude;
+
+                        const longitude =
+                            position.coords.longitude;
+
+                        const accuracy =
+                            position.coords.accuracy;
+
+                        const userLocation = [
+                            latitude,
+                            longitude
+                        ];
+
+                        // Remove previous marker
+                        if (userMarker) {
+                            map.removeLayer(userMarker);
+                        }
+
+                        // Remove previous accuracy circle
+                        if (accuracyCircle) {
+                            map.removeLayer(accuracyCircle);
+                        }
+
+                        // Create user marker
+                        userMarker = L.marker(
+                            userLocation
+                        )
+                        .addTo(map)
+                        .bindPopup(
+                            "<b>You are here</b><br>" +
+                            "Accuracy: approximately " +
+                            Math.round(accuracy) +
+                            " meters"
+                        )
+                        .openPopup();
+
+                        // Accuracy circle
+                        accuracyCircle = L.circle(
+                            userLocation,
+                            {
+                                radius: accuracy
+                            }
+                        ).addTo(map);
+
+                        // Move map to user
+                        map.setView(
+                            userLocation,
+                            16
+                        );
+
+                        // Reset button
+                        document.getElementById(
+                            "locateBtn"
+                        ).textContent =
+                            "📍 My Location";
+                    },
+
+                    // ERROR
+                    function (error) {
+
+                        let message =
+                            "Unable to find your location.";
+
+                        if (error.code === 1) {
+                            message =
+                                "Location permission was denied. Please allow location access.";
+                        }
+
+                        if (error.code === 2) {
+                            message =
+                                "Your location could not be determined. Turn on GPS and try again.";
+                        }
+
+                        if (error.code === 3) {
+                            message =
+                                "Location request timed out. Please try again.";
+                        }
+
+                        alert(message);
+
+                        document.getElementById(
+                            "locateBtn"
+                        ).textContent =
+                            "📍 My Location";
+                    },
+
+                    // OPTIONS
+                    {
+                        enableHighAccuracy: true,
+                        timeout: 15000,
+                        maximumAge: 0
+                    }
+                );
+            });
     </script>
 
 </body>
