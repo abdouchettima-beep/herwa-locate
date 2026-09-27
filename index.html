@@ -12,26 +12,68 @@ html,body{height:100%;margin:0;padding:0}
 #map{height:100%;width:100%}
 
 #searchBox{
-position:fixed;top:15px;left:15px;right:15px;
-z-index:1000;display:flex;gap:8px
+position:fixed;
+top:15px;
+left:15px;
+right:15px;
+z-index:1000;
+display:flex;
+gap:8px
 }
 
 #searchInput{
-flex:1;padding:13px 15px;border:none;border-radius:25px;
-font-size:16px;box-shadow:0 2px 8px rgba(0,0,0,.25)
+flex:1;
+padding:13px 15px;
+border:none;
+border-radius:25px;
+font-size:16px;
+box-shadow:0 2px 8px rgba(0,0,0,.25)
 }
 
 #searchBtn,#locateBtn{
-border:none;border-radius:25px;background:white;
-font-size:16px;font-weight:bold;
+border:none;
+border-radius:25px;
+background:white;
+font-size:16px;
+font-weight:bold;
 box-shadow:0 2px 8px rgba(0,0,0,.3)
 }
 
 #searchBtn{padding:0 16px}
 
 #locateBtn{
-position:fixed;bottom:20px;right:20px;
-z-index:1000;padding:13px 18px
+position:fixed;
+bottom:20px;
+right:20px;
+z-index:1000;
+padding:13px 18px
+}
+
+#infoBox{
+display:none;
+position:fixed;
+bottom:20px;
+left:15px;
+right:15px;
+z-index:1000;
+background:white;
+border-radius:18px;
+padding:18px;
+box-shadow:0 3px 15px rgba(0,0,0,.3);
+font-size:15px;
+line-height:1.5
+}
+
+#infoBox h3{
+margin:0 0 8px 0
+}
+
+#infoBox button{
+border:none;
+border-radius:20px;
+padding:10px 15px;
+margin-top:10px;
+font-weight:bold
 }
 </style>
 </head>
@@ -39,13 +81,26 @@ z-index:1000;padding:13px 18px
 <body>
 
 <div id="searchBox">
-<input id="searchInput" type="text" placeholder="🔎 Search Maiduguri...">
-<button id="searchBtn">Search</button>
+
+<input
+id="searchInput"
+type="text"
+placeholder="🔎 Search Maiduguri..."
+>
+
+<button id="searchBtn">
+Search
+</button>
+
 </div>
 
 <div id="map"></div>
 
-<button id="locateBtn">📍 My Location</button>
+<button id="locateBtn">
+📍 My Location
+</button>
+
+<div id="infoBox"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
@@ -55,10 +110,13 @@ const maiduguri=[11.8333,13.1500];
 
 const map=L.map("map").setView(maiduguri,13);
 
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{
+L.tileLayer(
+"https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+{
 maxZoom:19,
 attribution:"&copy; OpenStreetMap contributors"
-}).addTo(map);
+}
+).addTo(map);
 
 L.marker(maiduguri)
 .addTo(map)
@@ -68,37 +126,102 @@ let userMarker=null;
 let accuracyCircle=null;
 let searchMarker=null;
 
+let userLocation=null;
+
+
+/* LOCATION DETAILS */
+
+function showLocationDetails(place){
+
+const infoBox=document.getElementById("infoBox");
+
+const address=place.address || {};
+
+const area=
+address.suburb ||
+address.neighbourhood ||
+address.village ||
+address.town ||
+"Area information unavailable";
+
+const ward=
+address.ward ||
+"Ward information unavailable";
+
+const city=
+address.city ||
+address.town ||
+"Maiduguri";
+
+infoBox.innerHTML=
+"<h3>📍 "+place.display_name.split(",")[0]+"</h3>"+
+
+"<b>Area:</b> "+area+"<br>"+
+
+"<b>Ward:</b> "+ward+"<br>"+
+
+"<b>City:</b> "+city+"<br>"+
+
+"<b>Coordinates:</b> "+
+parseFloat(place.lat).toFixed(5)+
+", "+
+parseFloat(place.lon).toFixed(5)+
+
+"<br><button onclick='closeInfo()'>Close</button>";
+
+infoBox.style.display="block";
+
+}
+
+
+function closeInfo(){
+
+document.getElementById("infoBox").style.display="none";
+
+}
+
 
 /* MY LOCATION */
 
 document.getElementById("locateBtn").onclick=function(){
 
 if(!navigator.geolocation){
+
 alert("Your device does not support GPS.");
+
 return;
+
 }
 
 this.textContent="📍 Finding...";
 
 navigator.geolocation.getCurrentPosition(
+
 async function(position){
 
 const lat=position.coords.latitude;
 const lon=position.coords.longitude;
 const accuracy=position.coords.accuracy;
 
-const location=[lat,lon];
+userLocation=[lat,lon];
 
-if(userMarker) map.removeLayer(userMarker);
-if(accuracyCircle) map.removeLayer(accuracyCircle);
+if(userMarker)
+map.removeLayer(userMarker);
 
-userMarker=L.marker(location).addTo(map);
+if(accuracyCircle)
+map.removeLayer(accuracyCircle);
 
-accuracyCircle=L.circle(location,{
+userMarker=L.marker(userLocation)
+.addTo(map);
+
+accuracyCircle=L.circle(
+userLocation,
+{
 radius:accuracy
-}).addTo(map);
+}
+).addTo(map);
 
-map.setView(location,16);
+map.setView(userLocation,16);
 
 userMarker.bindPopup(
 "<b>📍 You are here</b><br>Finding location..."
@@ -107,23 +230,31 @@ userMarker.bindPopup(
 try{
 
 const response=await fetch(
+
 "https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat="+
-lat+"&lon="+lon+"&zoom=18&addressdetails=1"
+lat+
+"&lon="+
+lon+
+"&zoom=18&addressdetails=1"
+
 );
 
 const data=await response.json();
 
-const name=data.display_name||
+const name=
+data.display_name ||
 "Location name unavailable";
 
 userMarker.bindPopup(
-"<b>📍 You are here</b><br><br>"+name
+"<b>📍 You are here</b><br><br>"+
+name
 ).openPopup();
 
 }catch(error){
 
 userMarker.bindPopup(
-"<b>📍 You are here</b><br><br>Location name unavailable."
+"<b>📍 You are here</b><br><br>"+
+"Location name unavailable."
 ).openPopup();
 
 }
@@ -148,7 +279,9 @@ document.getElementById("locateBtn").textContent=
 enableHighAccuracy:true,
 timeout:15000,
 maximumAge:0
-});
+}
+
+);
 
 };
 
@@ -157,22 +290,30 @@ maximumAge:0
 
 async function searchPlace(){
 
-const input=document.getElementById("searchInput")
+const input=
+document.getElementById("searchInput")
 .value.trim();
 
 if(!input){
+
 alert("Please enter a place to search.");
+
 return;
+
 }
 
-const query=input+", Maiduguri, Nigeria";
+const query=
+input+
+", Maiduguri, Nigeria";
 
 try{
 
 const response=await fetch(
+
 "https://nominatim.openstreetmap.org/search?format=jsonv2&q="+
 encodeURIComponent(query)+
 "&limit=5&addressdetails=1"
+
 );
 
 const results=await response.json();
@@ -180,6 +321,7 @@ const results=await response.json();
 if(results.length===0){
 
 alert("Place not found.");
+
 return;
 
 }
@@ -189,16 +331,23 @@ const place=results[0];
 const lat=parseFloat(place.lat);
 const lon=parseFloat(place.lon);
 
-if(searchMarker) map.removeLayer(searchMarker);
+if(searchMarker)
+map.removeLayer(searchMarker);
 
-searchMarker=L.marker([lat,lon])
+searchMarker=
+L.marker([lat,lon])
 .addTo(map)
 .bindPopup(
 "<b>📍 "+place.display_name+"</b>"
 )
 .openPopup();
 
-map.setView([lat,lon],16);
+map.setView(
+[lat,lon],
+16
+);
+
+showLocationDetails(place);
 
 }catch(error){
 
@@ -210,14 +359,27 @@ alert(
 
 }
 
+
+/* SEARCH BUTTON */
+
 document.getElementById("searchBtn")
-.addEventListener("click",searchPlace);
+.addEventListener(
+"click",
+searchPlace
+);
+
+
+/* ENTER KEY */
 
 document.getElementById("searchInput")
-.addEventListener("keydown",function(event){
+.addEventListener(
+"keydown",
+function(event){
 
 if(event.key==="Enter"){
+
 searchPlace();
+
 }
 
 });
