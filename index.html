@@ -6,7 +6,7 @@
 
     <title>HERWA LOCATE</title>
 
-    <!-- Leaflet CSS -->
+    <!-- Leaflet -->
     <link
         rel="stylesheet"
         href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
@@ -25,7 +25,6 @@
             width: 100%;
         }
 
-        /* My Location button */
         #locateBtn {
             position: fixed;
             bottom: 20px;
@@ -42,58 +41,51 @@
             font-size: 16px;
             font-weight: bold;
 
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-
-            cursor: pointer;
-        }
-
-        #locateBtn:active {
-            transform: scale(0.96);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
         }
     </style>
 </head>
 
 <body>
 
-    <!-- Map -->
     <div id="map"></div>
 
-    <!-- Location button -->
     <button id="locateBtn">📍 My Location</button>
 
-    <!-- Leaflet JavaScript -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <script>
-        // ==============================
-        // HERWA LOCATE
-        // ==============================
 
-        // Maiduguri starting coordinates
+        // ==========================
+        // HERWA LOCATE
+        // ==========================
+
         const maiduguri = [11.8333, 13.1500];
 
-        // Create map
-        const map = L.map("map").setView(maiduguri, 13);
+        const map = L.map("map").setView(
+            maiduguri,
+            13
+        );
 
-        // OpenStreetMap
         L.tileLayer(
             "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
             {
                 maxZoom: 19,
-                attribution: "&copy; OpenStreetMap contributors"
+                attribution:
+                    "&copy; OpenStreetMap contributors"
             }
         ).addTo(map);
 
-        // Maiduguri marker
         L.marker(maiduguri)
             .addTo(map)
             .bindPopup(
                 "<b>HERWA LOCATE</b><br>Maiduguri"
             );
 
-        // ==============================
-        // MY LOCATION
-        // ==============================
+
+        // ==========================
+        // USER LOCATION
+        // ==========================
 
         let userMarker = null;
         let accuracyCircle = null;
@@ -102,21 +94,22 @@
             .getElementById("locateBtn")
             .addEventListener("click", function () {
 
-                // Check if GPS is available
                 if (!navigator.geolocation) {
+
                     alert(
-                        "Your device does not support location services."
+                        "Your device does not support GPS location."
                     );
+
                     return;
                 }
 
-                // Show temporary message
-                this.textContent = "📍 Finding you...";
+                this.textContent =
+                    "📍 Finding you...";
+
 
                 navigator.geolocation.getCurrentPosition(
 
-                    // SUCCESS
-                    function (position) {
+                    async function(position) {
 
                         const latitude =
                             position.coords.latitude;
@@ -132,87 +125,158 @@
                             longitude
                         ];
 
-                        // Remove previous marker
+
+                        // Remove old marker
                         if (userMarker) {
-                            map.removeLayer(userMarker);
+
+                            map.removeLayer(
+                                userMarker
+                            );
                         }
 
-                        // Remove previous accuracy circle
+
+                        // Remove old circle
                         if (accuracyCircle) {
-                            map.removeLayer(accuracyCircle);
+
+                            map.removeLayer(
+                                accuracyCircle
+                            );
                         }
 
-                        // Create user marker
-                        userMarker = L.marker(
-                            userLocation
-                        )
-                        .addTo(map)
-                        .bindPopup(
-                            "<b>You are here</b><br>" +
-                            "Accuracy: approximately " +
-                            Math.round(accuracy) +
-                            " meters"
-                        )
-                        .openPopup();
+
+                        // Create marker
+                        userMarker =
+                            L.marker(
+                                userLocation
+                            ).addTo(map);
+
 
                         // Accuracy circle
-                        accuracyCircle = L.circle(
-                            userLocation,
-                            {
-                                radius: accuracy
-                            }
-                        ).addTo(map);
+                        accuracyCircle =
+                            L.circle(
+                                userLocation,
+                                {
+                                    radius: accuracy
+                                }
+                            ).addTo(map);
 
-                        // Move map to user
+
+                        // Move map
                         map.setView(
                             userLocation,
                             16
                         );
 
-                        // Reset button
+
+                        // ==========================
+                        // FIND LOCATION NAME
+                        // ==========================
+
+                        userMarker
+                            .bindPopup(
+                                "<b>📍 You are here</b><br>" +
+                                "Finding location name..."
+                            )
+                            .openPopup();
+
+
+                        try {
+
+                            const response =
+                                await fetch(
+                                    "https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=" +
+                                    latitude +
+                                    "&lon=" +
+                                    longitude +
+                                    "&zoom=18&addressdetails=1"
+                                );
+
+
+                            const data =
+                                await response.json();
+
+
+                            let locationName =
+                                data.display_name ||
+                                "Location name unavailable";
+
+
+                            userMarker
+                                .bindPopup(
+                                    "<b>📍 You are here</b><br><br>" +
+                                    locationName
+                                )
+                                .openPopup();
+
+
+                        } catch (error) {
+
+                            userMarker
+                                .bindPopup(
+                                    "<b>📍 You are here</b><br><br>" +
+                                    "Location name could not be found."
+                                )
+                                .openPopup();
+
+                        }
+
+
                         document.getElementById(
                             "locateBtn"
                         ).textContent =
                             "📍 My Location";
+
                     },
 
-                    // ERROR
-                    function (error) {
+
+                    function(error) {
 
                         let message =
                             "Unable to find your location.";
 
                         if (error.code === 1) {
+
                             message =
                                 "Location permission was denied. Please allow location access.";
+
                         }
 
                         if (error.code === 2) {
+
                             message =
-                                "Your location could not be determined. Turn on GPS and try again.";
+                                "Location could not be determined. Turn on GPS and try again.";
+
                         }
 
                         if (error.code === 3) {
+
                             message =
-                                "Location request timed out. Please try again.";
+                                "Location request timed out. Try again.";
+
                         }
 
+
                         alert(message);
+
 
                         document.getElementById(
                             "locateBtn"
                         ).textContent =
                             "📍 My Location";
+
                     },
 
-                    // OPTIONS
+
                     {
                         enableHighAccuracy: true,
                         timeout: 15000,
                         maximumAge: 0
                     }
+
                 );
+
             });
+
     </script>
 
 </body>
